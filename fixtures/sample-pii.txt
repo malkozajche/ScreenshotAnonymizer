@@ -1,0 +1,8 @@
+# Synthetic text corpus for detector tests / CI verify
+
+email: amara.okafor@lagos-corp.ng
+phone: +234 801 555 0199
+ip: 10.12.34.56
+aws: AKIAIOSFODNN7EXAMPLE
+jwt: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signaturepartgoeshere1
+url: https://api.internal.corp/v1/items?access_token=supersecretvalue123
