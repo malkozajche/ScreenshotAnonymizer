@@ -12,7 +12,9 @@
     "test": "npm run test --workspace=@sa/pipeline",
     "lint": "npm run build --workspace=@sa/pipeline",
     "docker:build": "docker build -t screenshot-anonymizer .",
-    "docker:up": "docker compose up --build"
+    "docker:up": "docker compose up --build",
+    "build:pages": "VITE_BASE=/ScreenshotAnonymizer/ npm run build --workspace=@sa/web",
+    "deploy:pages": "npm run build:pages && npx --yes gh-pages@6 -d apps/web/dist -b gh-pages"
   },
   "engines": {
     "node": ">=20"
