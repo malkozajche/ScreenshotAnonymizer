@@ -1,0 +1,77 @@
+# Default anonymization policy
+
+version: 1
+name: default
+fail_closed: true
+require_human_approval: true
+
+replacements:
+  email: "user@example.com"
+  person_name:
+    - "Alex Rivera"
+    - "Sam Patel"
+    - "Jordan Lee"
+  phone: "+1 555 0100"
+  hostname: "app.example.com"
+  account_id: "usr_example_001"
+  org_name: "Acme Corp"
+  ip: "10.0.0.10"
+
+vocabulary:
+  keep: []
+  redact: []
+
+categories:
+  api_key:
+    action: redact_block
+    severity: critical
+  token:
+    action: redact_block
+    severity: critical
+  password:
+    action: redact_block
+    severity: critical
+  url_secret:
+    action: redact_block
+    severity: critical
+  financial:
+    action: redact_block
+    severity: critical
+  email:
+    action: replace_text
+    severity: high
+  phone:
+    action: replace_text
+    severity: high
+  person_name:
+    action: replace_text
+    severity: high
+  address:
+    action: replace_text
+    severity: high
+  account_id:
+    action: replace_text
+    severity: high
+  ip:
+    action: replace_text
+    severity: high
+  hostname:
+    action: replace_text
+    severity: medium
+  org_name:
+    action: replace_text
+    severity: medium
+  face:
+    action: blur
+    severity: high
+  free_text_pii:
+    action: redact_block
+    severity: high
+  other:
+    action: redact_block
+    severity: medium
+
+export:
+  format: png
+  strip_metadata: true
+  max_width: 2400
