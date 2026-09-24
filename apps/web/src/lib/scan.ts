@@ -18,32 +18,60 @@ export interface ScanResult {
   proposals: ProposedRedaction[];
 }
 
-/** Load image file to HTMLImageElement + object URL. */
+/**
+ * Load an image and re-encode via canvas so EXIF/XMP (GPS, device, author)
+ * are stripped before review/export.
+ */
 export async function loadImageFile(file: File): Promise<{
   img: HTMLImageElement;
   objectUrl: string;
   width: number;
   height: number;
+  strippedExif: boolean;
 }> {
-  const objectUrl = URL.createObjectURL(file);
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const el = new Image();
-    el.onload = () => resolve(el);
-    el.onerror = () => reject(new Error("Could not load image"));
-    el.src = objectUrl;
-  });
-  return { img, objectUrl, width: img.naturalWidth, height: img.naturalHeight };
+  const rawUrl = URL.createObjectURL(file);
+  try {
+    const raw = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("Could not load image"));
+      el.src = rawUrl;
+    });
+
+    const canvas = document.createElement("canvas");
+    canvas.width = raw.naturalWidth;
+    canvas.height = raw.naturalHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas unsupported");
+    ctx.drawImage(raw, 0, 0);
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error("EXIF strip encode failed"))),
+        "image/png",
+      );
+    });
+
+    const objectUrl = URL.createObjectURL(blob);
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("Could not load stripped image"));
+      el.src = objectUrl;
+    });
+
+    return {
+      img,
+      objectUrl,
+      width: img.naturalWidth,
+      height: img.naturalHeight,
+      strippedExif: true,
+    };
+  } finally {
+    URL.revokeObjectURL(rawUrl);
+  }
 }
 
-/**
- * Phase 1 scan: OCR is optional/future.
- * For now we also accept optional pasted/sidecar text, and run regex on any
- * text found via a lightweight canvas-free path. When OCR is unavailable,
- * callers can still paste UI copy or we detect from filename less usefully.
- *
- * Primary path: if `ocrText` provided use it; else empty detections until OCR.
- * Demo mode embeds text scan when user provides accompanying text.
- */
 export function scanFromText(
   sourcePath: string,
   text: string,

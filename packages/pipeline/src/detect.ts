@@ -33,6 +33,63 @@ const URL_SECRET =
 const UUID =
   /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi;
 
+/** "Signed in as: Jane Smith" / "User: Priya Sharma" style labels in product UIs. */
+const NAME_LABELED =
+  /(?:signed\s+in\s+as|logged\s+in\s+as|user\s*name|full\s+name|display\s+name|account\s+holder|customer\s+name|created\s+by|assignee|owner|employee|profile\s+name|\buser)\s*[:\-–]\s*([\p{L}][\p{L}'’.\-]*(?:[ \t]+[\p{L}][\p{L}'’.\-]*){1,3})/giu;
+
+/** Bare "First Last" (and optional middle) — filtered heavily for UI chrome. */
+const NAME_BARE =
+  /\b([\p{Lu}][\p{L}'’.\-]*(?:[ \t]+[\p{Lu}][\p{L}'’.\-]*){1,2})\b/gu;
+
+const NAME_STOP = new Set([
+  "acme",
+  "console",
+  "admin",
+  "server",
+  "email",
+  "phone",
+  "api",
+  "key",
+  "token",
+  "secret",
+  "home",
+  "settings",
+  "dashboard",
+  "account",
+  "profile",
+  "signed",
+  "user",
+  "password",
+  "login",
+  "logout",
+  "welcome",
+  "example",
+  "docs",
+  "documentation",
+  "screenshot",
+  "anonymizer",
+  "northwind",
+  "meridian",
+  "sakura",
+  "systems",
+  "digital",
+  "labs",
+  "ltd",
+  "gmbh",
+  "corp",
+  "inc",
+]);
+
+function looksLikePersonName(value: string): boolean {
+  const parts = value.trim().split(/\s+/);
+  if (parts.length < 2 || parts.length > 4) return false;
+  if (parts.some((p) => NAME_STOP.has(p.toLowerCase()))) return false;
+  if (parts.some((p) => /\d/.test(p))) return false;
+  // Avoid ALL-CAPS product labels
+  if (parts.every((p) => p === p.toUpperCase() && p.length <= 4)) return false;
+  return parts.every((p) => /^[\p{L}][\p{L}'’.\-]*$/u.test(p));
+}
+
 function pushMatches(
   text: string,
   pattern: RegExp,
@@ -84,15 +141,56 @@ export function detectInText(text: string): TextMatch[] {
   pushMatches(text, UUID, "account_id", 0.7, out);
   pushMatches(text, PHONE, "phone", 0.75, out, looksLikePhone);
 
-  // Prefer longer / more severe overlaps: sort then greedily keep non-overlapping
-  out.sort((a, b) => a.index - b.index || b.text.length - a.text.length);
-  const kept: TextMatch[] = [];
-  let cursor = -1;
-  for (const match of out) {
-    if (match.index < cursor) continue;
-    kept.push(match);
-    cursor = match.index + match.text.length;
+  // Labeled names: capture group only
+  NAME_LABELED.lastIndex = 0;
+  let labeled: RegExpExecArray | null;
+  while ((labeled = NAME_LABELED.exec(text)) !== null) {
+    const value = labeled[1]?.trim();
+    if (!value || !looksLikePersonName(value)) continue;
+    out.push({
+      category: "person_name",
+      text: value,
+      index: labeled.index + labeled[0].lastIndexOf(value),
+      confidence: 0.88,
+    });
   }
+
+  // Bare names after structured hits so emails/phones win overlaps
+  pushMatches(text, NAME_BARE, "person_name", 0.62, out, looksLikePersonName);
+
+  const severityRank: Record<string, number> = {
+    api_key: 100,
+    token: 95,
+    password: 95,
+    url_secret: 90,
+    financial: 90,
+    email: 80,
+    phone: 75,
+    person_name: 70,
+    ip: 65,
+    account_id: 60,
+    hostname: 50,
+    org_name: 45,
+    other: 10,
+  };
+
+  // Highest severity first so secrets win overlaps; then longer spans.
+  out.sort(
+    (a, b) =>
+      (severityRank[b.category] ?? 0) - (severityRank[a.category] ?? 0) ||
+      b.text.length - a.text.length ||
+      a.index - b.index,
+  );
+  const kept: TextMatch[] = [];
+  for (const match of out) {
+    const overlaps = kept.some(
+      (k) =>
+        match.index < k.index + k.text.length &&
+        match.index + match.text.length > k.index,
+    );
+    if (!overlaps) kept.push(match);
+  }
+  kept.sort((a, b) => a.index - b.index);
   return kept;
 }
 

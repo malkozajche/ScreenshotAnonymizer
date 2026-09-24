@@ -10,7 +10,9 @@
     "dev": "npm run dev --workspace=@sa/web",
     "build": "npm run build --workspace=@sa/pipeline && npm run build --workspace=@sa/web",
     "test": "npm run test --workspace=@sa/pipeline",
-    "lint": "npm run build --workspace=@sa/pipeline"
+    "lint": "npm run build --workspace=@sa/pipeline",
+    "docker:build": "docker build -t screenshot-anonymizer .",
+    "docker:up": "docker compose up --build"
   },
   "engines": {
     "node": ">=20"

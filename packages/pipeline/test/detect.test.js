@@ -34,6 +34,27 @@ describe("detectInText", () => {
     );
     assert.ok(hits.some((h) => h.category === "url_secret"));
   });
+
+  it("finds labeled and bare person names", () => {
+    const labeled = detectInText("Signed in as: Jane Smith\nRole: Admin");
+    assert.ok(
+      labeled.some(
+        (h) => h.category === "person_name" && h.text === "Jane Smith",
+      ),
+      JSON.stringify(labeled),
+    );
+
+    const bare = detectInText("Assigned to Priya Sharma for review");
+    assert.ok(
+      bare.some(
+        (h) => h.category === "person_name" && h.text.includes("Priya"),
+      ),
+      JSON.stringify(bare),
+    );
+
+    const chrome = detectInText("Acme Console\nAPI Key settings");
+    assert.ok(!chrome.some((h) => h.category === "person_name"));
+  });
 });
 
 describe("international replacements", () => {
