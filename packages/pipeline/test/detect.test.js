@@ -4,7 +4,6 @@ import {
   detectInText,
   proposeRedactions,
   matchesToDetections,
-  pickReplacement,
   defaultPolicy,
   verifyTextClean,
 } from "../dist/index.js";
@@ -57,35 +56,14 @@ describe("detectInText", () => {
   });
 });
 
-describe("international replacements", () => {
-  it("picks stable international personas", () => {
-    const a = pickReplacement(defaultPolicy, "person_name", "John Smith");
-    const b = pickReplacement(defaultPolicy, "person_name", "John Smith");
-    assert.equal(a, b);
-    const allowed = [
-      "Amara Okafor",
-      "Yuki Tanaka",
-      "Sofía Mendoza",
-      "Lars Nielsen",
-      "Priya Sharma",
-      "Chen Wei",
-      "Fatima Al-Hassan",
-      "Nina Petrović",
-      "Mateo Rossi",
-      "Aisha Diallo",
-    ];
-    assert.ok(a && allowed.includes(a));
+describe("blur-only policy", () => {
+  it("defaults every category to blur", () => {
+    for (const rule of Object.values(defaultPolicy.categories)) {
+      assert.equal(rule.action, "blur");
+    }
   });
 
-  it("uses international phone formats", () => {
-    const phone = pickReplacement(defaultPolicy, "phone", "+1 415 555 0100");
-    assert.ok(phone?.startsWith("+"));
-    assert.notEqual(phone, "+1 415 555 0100");
-  });
-});
-
-describe("propose + verify", () => {
-  it("proposes replace_text for emails and redact for secrets", () => {
+  it("proposes blur for emails and secrets", () => {
     const text = "hello jane.doe@corp.com key AKIAIOSFODNN7EXAMPLE";
     const detections = matchesToDetections(
       detectInText(text),
@@ -93,12 +71,11 @@ describe("propose + verify", () => {
       defaultPolicy,
     );
     const proposals = proposeRedactions(detections, defaultPolicy);
-    const email = proposals.find((p) => p.detection.category === "email");
-    const key = proposals.find((p) => p.detection.category === "api_key");
-    assert.equal(email?.action, "replace_text");
-    assert.ok(email?.replacement?.includes("@example."));
-    assert.equal(key?.action, "redact_block");
-    assert.equal(key?.replacement, null);
+    assert.ok(proposals.length >= 2);
+    for (const p of proposals) {
+      assert.equal(p.action, "blur");
+      assert.equal(p.replacement, null);
+    }
   });
 
   it("verifyTextClean reports residual hits", () => {

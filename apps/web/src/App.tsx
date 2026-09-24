@@ -138,9 +138,8 @@ export default function App() {
           Screenshot <span>Anonymizer</span>
         </div>
         <p>
-          Scan screenshots on this device, replace private data with
-          international stand-ins, and download docs-ready images — phone or
-          desktop.
+          Scan screenshots on this device, blur private regions, and download
+          docs-ready images — phone or desktop.
         </p>
       </header>
 
@@ -258,30 +257,11 @@ export default function App() {
                   >
                     <header>
                       <span className="cat">{p.detection.category}</span>
-                      <span className="meta">{p.detection.severity}</span>
+                      <span className="meta">
+                        {p.action === "dismiss" ? "dismissed" : "blur"}
+                      </span>
                     </header>
                     <div className="text">{p.detection.text ?? "(region)"}</div>
-                    {p.action === "replace_text" && (
-                      <label className="meta">
-                        Replacement
-                        <input
-                          style={{
-                            display: "block",
-                            width: "100%",
-                            marginTop: 4,
-                            padding: "0.45rem 0.55rem",
-                            borderRadius: 8,
-                            border: "1px solid var(--line)",
-                          }}
-                          value={p.replacement ?? ""}
-                          onChange={(e) =>
-                            updateProposal(p.detection.id, {
-                              replacement: e.target.value,
-                            })
-                          }
-                        />
-                      </label>
-                    )}
                     <div className="row-actions">
                       {p.action !== "dismiss" ? (
                         <button
@@ -299,24 +279,11 @@ export default function App() {
                           type="button"
                           onClick={() =>
                             updateProposal(p.detection.id, {
-                              action: p.detection.suggestedAction,
+                              action: "blur",
                             })
                           }
                         >
-                          Restore
-                        </button>
-                      )}
-                      {p.action !== "redact_block" && p.action !== "dismiss" && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            updateProposal(p.detection.id, {
-                              action: "redact_block",
-                              replacement: null,
-                            })
-                          }
-                        >
-                          Solid redact
+                          Restore blur
                         </button>
                       )}
                     </div>
@@ -354,8 +321,8 @@ export default function App() {
       )}
 
       <p className="privacy">
-        On-device by default · international personas · secrets are solid-blocked,
-        never faked · install this page as an app from your browser menu.
+        On-device by default · detected regions are blurred · install this page
+        as an app from your browser menu.
       </p>
     </div>
   );
