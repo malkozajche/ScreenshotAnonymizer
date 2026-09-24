@@ -5,17 +5,51 @@ name: default
 fail_closed: true
 require_human_approval: true
 
+# International persona pack — rotate stably per distinct source string
 replacements:
-  email: "user@example.com"
+  email:
+    - "user@example.com"
+    - "contact@example.org"
+    - "hello@example.net"
   person_name:
-    - "Alex Rivera"
-    - "Sam Patel"
-    - "Jordan Lee"
-  phone: "+1 555 0100"
-  hostname: "app.example.com"
-  account_id: "usr_example_001"
-  org_name: "Acme Corp"
-  ip: "10.0.0.10"
+    - "Amara Okafor"       # West Africa
+    - "Yuki Tanaka"        # Japan
+    - "Sofía Mendoza"      # Latin America
+    - "Lars Nielsen"       # Nordics
+    - "Priya Sharma"       # South Asia
+    - "Chen Wei"           # China
+    - "Fatima Al-Hassan"   # Middle East / North Africa
+    - "Nina Petrović"      # Southeast Europe
+    - "Mateo Rossi"        # Southern Europe
+    - "Aisha Diallo"       # West Africa / diaspora
+  phone:
+    - "+44 7700 900123"    # UK
+    - "+81 90-1234-5678"   # Japan
+    - "+55 11 98765-4321"  # Brazil
+    - "+49 151 12345678"   # Germany
+    - "+91 98765 43210"    # India
+    - "+234 801 234 5678"  # Nigeria
+  hostname:
+    - "app.example.com"
+    - "console.example.org"
+  account_id:
+    - "usr_example_001"
+    - "usr_example_002"
+    - "acct_demo_100"
+  org_name:
+    - "Meridian GmbH"
+    - "Sakura Systems"
+    - "Northwind Ltd"
+    - "Andes Digital"
+    - "Lagos Labs"
+  ip:
+    - "10.0.0.10"
+    - "10.0.0.20"
+    - "192.168.0.10"
+  address:
+    - "100 Example Street, London"
+    - "2-1 Example-cho, Shibuya"
+    - "Av. Ejemplo 500, São Paulo"
 
 vocabulary:
   keep: []

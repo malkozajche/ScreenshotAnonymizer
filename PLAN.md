@@ -23,7 +23,7 @@ Upload product screenshots → detect private / identifiable data → anonymize 
 
 | Category | Examples | Default action |
 |---|---|---|
-| Direct PII | names, emails, phones, postal addresses | replace with generics (`Jane Doe`, `user@example.com`, `+1 555 0100`) |
+| Direct PII | names, emails, phones, postal addresses | replace with international generics (`Amara Okafor`, `user@example.com`, `+44 7700 900123`) |
 | Account IDs | user IDs, org IDs, customer numbers | replace with stable fake IDs |
 | Auth secrets | API keys, tokens, JWTs, passwords, cookies | solid redact (never fake “realistic” secrets) |
 | Network | private IPs, internal hostnames, VPN endpoints | replace with `10.0.0.x` / `app.example.com` |
@@ -108,38 +108,34 @@ Consistency: same source string → same replacement within a job (and optionall
 
 ## Recommended architecture (v1)
 
-**Local-first CLI + small web review UI**, one repo.
+**Mobile-first PWA; processing stays on-device**, one repo.
 
 ```
 screenshot-anonymizer/
 ├── apps/
-│   ├── cli/                 # batch & CI entrypoint
-│   └── review-ui/           # local web UI for approve/edit
+│   └── web/                 # Vite React PWA (phone + desktop)
 ├── packages/
-│   ├── core/                # pipeline orchestration
-│   ├── detectors/           # OCR, regex, NER, vision adapters
-│   ├── redact/              # mask apply, text overlay, blur
-│   └── schema/              # job + report Zod/JSON schemas
+│   └── pipeline/            # detect, redact, policy, types (isomorphic)
 ├── policies/
-│   └── default.yaml         # PII rules, replacements, severity
-├── fixtures/                # synthetic screenshots for tests
+│   └── default.yaml         # international persona pack + rules
+├── fixtures/                # synthetic screenshots / text for tests
 └── PLAN.md
 ```
 
-### Tech stack (pragmatic defaults)
+### Tech stack (locked)
 
 | Concern | Choice | Why |
 |---|---|---|
-| Language | TypeScript (Node) + Python workers where models are easier | One product surface; Python for OCR/NER if needed |
-| Orchestration | Job folder on disk + SQLite (or JSONL) index | Simple, auditable, no cloud required |
-| OCR | PaddleOCR or Tesseract | Local, free, good enough for UI text |
-| Patterns | Own regex pack + secret scanners (gitleaks-style) | High precision for keys/tokens |
-| Redaction draw | Sharp / Canvas / Pillow | Deterministic pixel output |
-| Review UI | Vite + React | Fast local loop |
-| Config | YAML policy files | Diffable, per-docs-site policies |
-| Packaging | `npx` / Docker image | Same pipeline on laptop and CI |
+| Language | TypeScript end-to-end | One stack for web + future CLI |
+| App | Vite + React PWA | Install on phone, works offline, deploy anywhere |
+| Processing | Browser (Canvas + Tesseract.js) | Screenshots never uploaded by default |
+| Job storage | IndexedDB | Per-device, no account |
+| Patterns | Regex / secret scanners | High precision for keys/tokens |
+| Redaction | Canvas overlays + solid blocks | Deterministic, docs-friendly |
+| Config | YAML policy (bundled + editable later) | Diffable international personas |
+| Packaging | Static host or Docker nginx | One URL from anywhere |
 
-**Later (v2+):** optional cloud vision LLM assist (opt-in), team review queue, Figma/plugin upload, docs-site PR bot.
+**Later (v2+):** optional self-hosted server assist, team review queue, headless CLI for CI, Figma plugin.
 
 ---
 
@@ -150,9 +146,10 @@ screenshot-anonymizer/
 ```yaml
 version: 1
 replacements:
-  email: "user@example.com"
-  person_name: ["Alex Rivera", "Sam Patel", "Jordan Lee"]
-  phone: "+1 555 0100"
+  email: ["user@example.com", "contact@example.org"]
+  person_name: ["Amara Okafor", "Yuki Tanaka", "Sofía Mendoza", "Lars Nielsen"]
+  phone: ["+44 7700 900123", "+81 90-1234-5678", "+55 11 98765-4321"]
+  org_name: ["Meridian GmbH", "Sakura Systems", "Lagos Labs"]
   hostname: "app.example.com"
 severity:
   keep: ["Example Product", "Docs"]
@@ -174,7 +171,7 @@ Projects fork/extend this file. CI can pin a policy hash in the job report.
 
 | Risk | Mitigation |
 |---|---|
-| Operator publishes original by mistake | Separate `originals/` vs `publish/`; CLI `export` only reads approved jobs |
+| Operator publishes original by mistake | Download only from approved state; originals stay in IndexedDB until cleared |
 | Missed PII in noisy UI | Multi-layer detect + fail-closed + mandatory review |
 | Realistic fake secrets confuse readers | Secrets always solid-redact, never “sk-live-xxxx” fakes |
 | Model/API leak of screenshots | Default local; cloud detectors behind explicit flag + warning |
@@ -186,13 +183,13 @@ Projects fork/extend this file. CI can pin a policy hash in the job report.
 
 ## Acceptance criteria (definition of done for v1)
 
-1. Upload / point CLI at a folder of screenshots → job created, EXIF stripped.
+1. Open the web app on desktop or phone → upload from files or camera roll.
 2. Detector finds at least: emails, phones, IPv4, JWT-like tokens, AWS-like keys, common URL token params.
 3. OCR bounding boxes drive text replacements that remain legible in typical UI screenshots.
-4. Review UI shows original vs preview; user can edit/dismiss detections; approve locks the job.
-5. Export writes anonymized images + `report.json`; refuses unapproved jobs.
-6. Fixture suite with synthetic PII; CI fails if known entities survive in `publish/` outputs (grep/OCR round-trip test).
-7. One Docker command runs CLI + review UI offline.
+4. Mobile-friendly review UI shows original vs preview; user can edit/dismiss detections; approve locks the job.
+5. Download anonymized images + `report.json`; export blocked until approved (or explicit clean-accept).
+6. Unit/fixture suite with synthetic PII; verify step fails if known entities survive.
+7. One URL (or Docker) runs the full PWA offline-capable; installable on phone home screen.
 
 ---
 
@@ -201,49 +198,51 @@ Projects fork/extend this file. CI can pin a policy hash in the job report.
 ### Phase 0 — Plan & contracts *(this doc)*
 - Schema for Job / Detection / Decision / Report
 - Policy YAML shape
-- Folder layout + CLI command sketch
+- Locked product decisions (below)
 
-### Phase 1 — Core CLI spine
-- Ingest, normalize, regex detectors, block redaction, JSON report
-- No UI yet; `--dry-run` and `--apply` with manual JSON edits OK
+### Phase 1 — Web PWA spine + regex detect/redact
+- Vite React TypeScript PWA (mobile-first)
+- Browser pipeline: ingest → regex detect → block/replace propose → review → download
+- IndexedDB job storage (device-local)
+- International persona policy pack
 
 ### Phase 2 — OCR + text replace
-- OCR layer, bbox merge, styled text overlays
-- Consistency map for replacements
+- Tesseract.js in-browser OCR, bbox merge, styled overlays
+- Consistency map for replacements across a batch
 
-### Phase 3 — Review UI
-- Local server, side-by-side, approve flow
-- Export gate
+### Phase 3 — Polish for phone + share
+- Camera capture, share-target, better touch review gestures
+- PWA install prompt + offline shell
 
 ### Phase 4 — Hardening
 - Faces/QR optional detector
 - Fixture CI gates
-- Docker image, policy packs, docs
+- Docker image for self-host / air-gapped teams
+- Optional headless CLI wrapping the same `packages/pipeline` for CI
 
 ### Phase 5 — Nice-to-haves
 - Batch “docs set” consistency across many images
 - Opt-in cloud vision assist
-- VS Code / CI action: fail PR if unapproved screenshots added
+- CI action: fail PR if unapproved screenshots added
 
 ---
 
-## CLI sketch (target UX)
+## Product UX sketch
+
+```
+Phone / laptop browser
+  → open deployed URL (or localhost / Docker)
+  → Upload or take screenshot
+  → Scan (on-device)
+  → Review detections (tap to edit / dismiss)
+  → Approve → Download PNG + report.json
+```
+
+Optional later CLI (same pipeline package):
 
 ```bash
-# Create job from a folder
-sa ingest ./raw-shots --policy policies/docs.yaml
-
-# Run detection + proposal
-sa scan <job-id>
-
-# Open review UI
-sa review <job-id>
-
-# Bake publishable outputs
-sa export <job-id> --out ./publish
-
-# CI guard: fail if publish/ still contains known patterns
-sa verify ./publish --policy policies/docs.yaml
+sa scan ./raw-shots --out ./publish
+sa verify ./publish
 ```
 
 ---
@@ -266,24 +265,22 @@ sa verify ./publish --policy policies/docs.yaml
 
 ---
 
-## Open decisions (resolve before Phase 1 code)
+## Locked decisions
 
-1. **Runtime:** TypeScript-only with external OCR binary vs TS + Python sidecar?
-2. **Storage:** filesystem jobs only vs SQLite index from day one?
-3. **Text replace quality:** simple overlay rectangles vs inpainting + font estimate?
-4. **Brand defaults:** what generic persona/company set for this repo’s sample policy?
-
-**Proposed defaults:** TypeScript CLI + Tesseract/Paddle via subprocess; filesystem jobs + `manifest.json`; overlay rectangles first (good enough for docs); `Alex Rivera` / `Acme Corp` / `app.example.com` persona pack.
+| Decision | Choice | Why |
+|---|---|---|
+| **Runtime** | TypeScript everywhere; Vite + React **PWA**; Tesseract.js in-browser for OCR | Runs from any URL on phone or desktop; no Python sidecar; deploy to static host or Docker |
+| **Where processing happens** | **On-device (browser) by default** | Screenshots never leave the phone/laptop unless operator self-hosts a future optional server assist |
+| **Storage** | IndexedDB per device for jobs; download for publish artifacts | Works offline; no account required for v1 |
+| **Text replace** | Overlay rectangles + approximate font size first | Fast, predictable; inpainting later if needed |
+| **Persona pack** | International names, phones, orgs (see `policies/default.yaml`) | Docs look global, not US-only |
+| **Secrets** | Always solid `redact_block` | Never emit realistic-looking fake keys |
 
 ---
 
 ## Immediate next implementation step
 
-After this plan is accepted:
-
-1. Scaffold monorepo + JSON schemas for Job/Detection/Report.
-2. Implement `sa ingest` / `sa scan` with regex detectors + solid redaction.
-3. Add synthetic fixtures and `sa verify`.
-4. Only then build OCR + review UI.
-
-That order gets a **useful, safe MVP** in the fewest moving parts, then layers quality and UX.
+1. Scaffold `apps/web` PWA + `packages/pipeline` (detect / redact / types).
+2. Ship Phase 1: upload → regex scan → review → download on mobile + desktop.
+3. Add fixtures + unit tests for detectors.
+4. Layer OCR (Phase 2) on the same review UI.

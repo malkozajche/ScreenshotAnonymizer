@@ -1,34 +1,40 @@
 # Screenshot Anonymizer
 
-Upload screenshots → detect private data → anonymize → export docs-ready images.
+Upload screenshots on phone or desktop → detect private data on-device → anonymize → download docs-ready images.
 
-**Status:** Planning. See [PLAN.md](./PLAN.md) for the full architecture, threat model, and phased delivery.
+**Status:** Plan locked + Phase 1 scaffolding. See [PLAN.md](./PLAN.md).
 
 ## Quick mental model
 
 ```
-ingest → normalize (strip EXIF) → detect (OCR + patterns) → propose masks
-      → human review → export publishable assets + audit report
+upload (files / camera) → scan on-device → review → approve → download
 ```
 
-Human approval is required before anything is considered publishable.
+Human approval is required before export. Screenshots stay in the browser by default.
 
-## Repo layout (target)
+## Run anywhere
 
-```
-apps/cli            batch & CI entrypoint
-apps/review-ui      local approve/edit UI
-packages/core       pipeline orchestration
-packages/detectors  OCR, regex, NER, vision
-packages/redact     blur / block / text replace
-packages/schema     job + report contracts
-policies/           YAML redaction policies
-fixtures/           synthetic screenshots for CI
+```bash
+npm install
+npm run dev --workspace=apps/web
 ```
 
-## Principles
+Open the URL on your laptop or phone (same Wi‑Fi / tunneled host). Install as a PWA from the browser menu when prompted.
 
-- Local-first; originals never published
-- Fail closed on ambiguous detections
-- Replace with generics for docs readability; solid-redact secrets
-- Full audit trail per job
+## Decisions locked
+
+| Topic | Choice |
+|---|---|
+| Surface | Mobile-first web PWA |
+| Processing | On-device (browser) |
+| Personas | International pack in `policies/default.yaml` |
+| Secrets | Solid redaction only |
+
+## Repo layout
+
+```
+apps/web              Vite React PWA
+packages/pipeline     detect / redact / policy (shared)
+policies/             YAML redaction policies
+fixtures/             synthetic test data
+```
